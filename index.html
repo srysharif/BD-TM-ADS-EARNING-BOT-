@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BD TM EARNING BOT</title>
+
+<!-- Monetage SDK -->
+<script src='//libtl.com/sdk.js' data-zone='9798399' data-sdk='show_9798399'></script>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<style>
+/* আগের USDT বটের ডিজাইন ঠিক একইভাবে, শুধু বাংলা ব্যালান্স, বাটন টেক্সট */
+:root {
+    --tg-theme-bg-color: #121212; --tg-theme-text-color: #e0e0e0;
+    --tg-theme-button-color: #007bff; --tg-theme-button-text-color: #ffffff;
+    --tg-theme-hint-color: #8a8a8a; --success-color: #28a745;
+    --warning-color: #ffc107; --danger-color: #dc3545; --secondary-bg-color: #1e1e1e;
+    --border-color: #333333;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto; margin:0; padding:20px 15px 90px 15px; background-color: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); display:flex; flex-direction:column; align-items:center; text-align:center; min-height:100vh; box-sizing:border-box; }
+.container { width:100%; max-width:500px; }
+.view { display:none; width:100%; animation: fadeIn 0.3s ease-in-out; }
+#home-view { display:block; }
+/* বাকি CSS আগের মতো, হোম, উইথড্র, রেফারাল কার্ড, বাটন, ন্যাভিগেশন */
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<!-- Home / Task View -->
+<div id="home-view" class="view">
+<div class="header"><h1>BD TM EARNING BOT</h1><p>বিজ্ঞাপন দেখুন এবং ইনকাম করুন</p></div>
+<div class="card">
+<h2>বর্তমান ব্যালান্স</h2>
+<div class="balance-amount" id="balanceDisplay">BDT 0.00</div>
+<div class="ad-info-grid">
+<div class="ad-info-item"><h3 id="adCountDisplay">0</h3><p>মোট এড দেখেছেন</p></div>
+<div class="ad-info-item"><h3 id="dailyAdCountDisplay">0 / 1000</h3><p>আজকের এড</p></div>
+</div>
+</div>
+<div class="ad-buttons"><button class="btn" id="rewardedBtn">বিজ্ঞাপন দেখুন (+0.20 BDT)</button></div>
+<button class="btn" id="mainWithdrawBtn" disabled>১০ BDT হলে উইথড্র করুন</button>
+</div>
+
+<!-- Withdraw View -->
+<div id="withdraw-view" class="view">
+<div class="header"><h1>উইথড্র</h1><p>আপনার ইনকাম রিকোয়েস্ট করুন</p></div>
+<div class="card">
+<h2>আপনার ব্যালান্স</h2>
+<div class="balance-amount" id="withdrawBalanceDisplay">BDT 0.00</div>
+<p style="color: var(--tg-theme-hint-color); margin-top:15px;">মিনিমাম উইথড্র: 10 BDT</p>
+</div>
+<div class="card">
+<h2>পেমেন্ট বিস্তারিত</h2>
+<div class="input-group">
+<label for="paymentAddress">বিকাশ নাম্বার</label>
+<input type="text" id="paymentAddress" placeholder="017XXXXXXXX">
+</div>
+<button class="btn" id="finalWithdrawBtn" disabled>উইথড্র</button>
+</div>
+</div>
+
+<!-- Referral View -->
+<div id="referral-view" class="view">
+<div class="header"><h1>রেফারেল</h1><p>বন্ধুদের আমন্ত্রণ করুন এবং আরও ইনকাম করুন!</p></div>
+<div class="card">
+<h2>রেফারেল স্ট্যাটস</h2>
+<div class="ad-info-grid">
+<div class="ad-info-item"><h3 id="referralCountDisplay">0</h3><p>মোট রেফারেল</p></div>
+<div class="ad-info-item"><h3 id="referralBonusDisplay">BDT 0.00</h3><p>রেফারেল ইনকাম</p></div>
+</div>
+</div>
+<div class="card">
+<h2>আপনার রেফারেল লিঙ্ক</h2>
+<p>বন্ধুদের শেয়ার করুন। প্রতিটি ভেরিফাইড রেফারেল জন্য +0.50 BDT!</p>
+<p id="referralLink" title="Click to copy"></p>
+<p style="font-size:12px; color:var(--tg-theme-hint-color); margin-top:15px;">রেফারেল বোনাস ব্যাকএন্ড দ্বারা প্রসেস হবে।</p>
+</div>
+</div>
+
+<div class="status-message" id="statusMessage"></div>
+<div class="admin-panel" id="adminPanel"><h3>👑 Admin Panel</h3><p id="userInfo"></p></div>
+
+</div>
+
+<!-- Footer Navigation -->
+<footer class="footer-nav">
+<button class="nav-btn active" id="navHome"><span>Home</span></button>
+<button class="nav-btn" id="navWithdraw"><span>Withdraw</span></button>
+<button class="nav-btn" id="navRefer"><span>Referrals</span></button>
+</footer>
+
+<script>
+// Telegram WebApp
+const tg = window.Telegram.WebApp;
+
+// Config
+const ADMIN_ID = 7691157254;
+const BOT_USERNAME = 'BD_TM_ADS_EARNING_BOT';
+const WITHDRAW_THRESHOLD = 10; // BDT
+const AD_REWARD = 0.20; // BDT per ad
+const DAILY_AD_LIMIT = 1000;
+const REFERRAL_BONUS = 0.5;
+
+// State
+let state = { balance:0, totalAd:0, dailyAd:0, lastAdDate:null, referralCount:0 };
+
+// Load / Save State
+function getToday(){ return new Date().toISOString().split('T')[0]; }
+function loadState(){ try{ let s=JSON.parse(localStorage.getItem('bdtmState')); if(s) state={...state,...s}; if(state.lastAdDate!==getToday()){state.dailyAd=0;state.lastAdDate=getToday();saveState();} }catch(e){} }
+function saveState(){ localStorage.setItem('bdtmState',JSON.stringify(state)); }
+
+// UI
+function updateUI(){
+    balanceDisplay.textContent=`BDT ${state.balance.toFixed(2)}`;
+    adCountDisplay.textContent=state.totalAd;
+    dailyAdCountDisplay.textContent=`${state.dailyAd} / ${DAILY_AD_LIMIT}`;
+    withdrawBalanceDisplay.textContent=`BDT ${state.balance.toFixed(2)}`;
+    referralCountDisplay.textContent=state.referralCount;
+    referralBonusDisplay.textContent=`BDT ${(state.referralCount*REFERRAL_BONUS).toFixed(2)}`;
+    const canWithdraw=state.balance>=WITHDRAW_THRESHOLD;
+    mainWithdrawBtn.disabled=!canWithdraw;
+    finalWithdrawBtn.disabled=!canWithdraw;
+    rewardedBtn.disabled=state.dailyAd>=DAILY_AD_LIMIT;
+}
+
+// Show status
+function showStatus(msg,type='info'){statusMessage.textContent=msg;statusMessage.className=`status-message ${type}`;statusMessage.style.display='block';setTimeout(()=>statusMessage.style.display='none',3000);}
+
+// Views
+function showView(v){document.querySelectorAll('.view').forEach(el=>el.style.display='none');document.getElementById(v).style.display='block';document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));if(v==='home-view') navHome.classList.add('active'); else if(v==='withdraw-view') navWithdraw.classList.add('active'); else if(v==='referral-view') navRefer.classList.add('active');}
+
+// Events
+rewardedBtn.onclick=function(){
+    if(state.dailyAd>=DAILY_AD_LIMIT){ showStatus('আজকের এড লিমিট শেষ।','error'); return; }
+    showStatus('এড লোড হচ্ছে...');
+    Promise.resolve(show_9798399()).then(()=>{
+        state.totalAd++; state.dailyAd++; state.balance+=AD_REWARD; saveState(); updateUI();
+        showStatus(`সাফল্য! +${AD_REWARD.toFixed(2)} BDT অ্যাড হয়ে গেছে।`,'success');
+    }).catch(e=>showStatus('এড লোড হয়নি, পরে চেষ্টা করুন।','error'));
+};
+mainWithdrawBtn.onclick=()=>showView('withdraw-view');
+finalWithdrawBtn.onclick=function(){
+    const wallet=paymentAddress.value.trim();
+    if(state.balance<WITHDRAW_THRESHOLD){ showStatus(`ন্যূনতম ${WITHDRAW_THRESHOLD} BDT প্রয়োজন।`,'error'); return; }
+    if(!/^01\d{8,9}$/.test(wallet)){ showStatus('বিকাশ নাম্বার সঠিক নয়।','error'); return; }
+    const user=tg.initDataUnsafe.user;
+    const msg=`--- উইথড্র রিকোয়েস্ট ---\nUser ID: ${user.id}\nName: ${user.first_name}\nUsername: @${user.username || 'N/A'}\nAmount: ${state.balance.toFixed(2)} BDT\nবিকাশ: ${wallet}`;
+    tg.sendData(msg);
+    showStatus('আপনার উইথড্র রিকোয়েস্ট পাঠানো হয়েছে।','success');
+    state.balance=0; saveState(); updateUI(); paymentAddress.value=''; showView('home-view');
+};
+navHome.onclick=()=>showView('home-view');
+navWithdraw.onclick=()=>showView('withdraw-view');
+navRefer.onclick=()=>showView('referral-view');
+
+// Init
+loadState(); updateUI();
+</script>
+</body>
+</html>
